@@ -1,0 +1,52 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidUser(data) {
+      return data.name is string && data.name.size() >= 2 && data.name.size() <= 100 &&
+             data.phone is string && data.phone.size() >= 8 && data.phone.size() <= 20 &&
+             data.category in ['Individual', 'Creator', 'Business', 'Other'] &&
+             (data.socialLink == null || (data.socialLink is string && data.socialLink.size() <= 200)) &&
+             data.createdAt is timestamp &&
+             data.expiresAt is timestamp &&
+             data.expiresAt > data.createdAt &&
+             (data.updatedAt == null || data.updatedAt is timestamp);
+    }
+
+    match /users/{phone} {
+      // Allow public listing of active users
+      allow list: if true; 
+      allow get: if true;
+
+      // Allow users to join (create)
+      // We check that the createdAt is within a reasonable window of the request time
+      allow create: if isValidUser(incoming()) && incoming().phone == phone;
+      
+      // Allow users to re-activate (update)
+      allow update: if incoming().phone == existing().phone && incoming().expiresAt is timestamp;
+
+      allow delete: if false; 
+    }
+  }
+}

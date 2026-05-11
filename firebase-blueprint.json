@@ -1,0 +1,25 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Contact",
+      "description": "A contact submitted by a user for growth exchange.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Full name of the user" },
+        "phone": { "type": "string", "description": "Phone number with country code" },
+        "category": { "type": "string", "enum": ["Individual", "Creator", "Business", "Other"] },
+        "socialLink": { "type": "string", "description": "Instagram/TikTok/Website link" },
+        "imageUrl": { "type": "string", "format": "uri" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "phone", "category", "createdAt", "expiresAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Collection of users participating in the contact exchange pool."
+    }
+  }
+}
