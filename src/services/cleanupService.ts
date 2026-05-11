@@ -31,10 +31,10 @@ export async function cleanupExpiredContacts() {
     });
     
     await batch.commit();
-    console.log(`[Protocol Cleanup] Purged ${snapshot.size} expired records.`);
+    console.log(`[Database Cleanup] Purged ${snapshot.size} expired records.`);
     return { success: true, count: snapshot.size };
   } catch (error) {
-    console.error("[Protocol Cleanup] Failed to purge expired records:", error);
+    console.error("[Database Cleanup] Failed to purge expired records:", error);
     return { success: false, error };
   }
 }

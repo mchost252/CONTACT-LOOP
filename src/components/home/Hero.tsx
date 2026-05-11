@@ -139,10 +139,10 @@ export default function Hero() {
               <div className="absolute -inset-4 bg-brand-blue/20 blur-[60px] rounded-full opacity-30 group-hover:opacity-50 transition-opacity duration-1000 animate-pulse" style={{ animationDelay: '-2s' }} />
               
               {/* The Globe Image */}
-              <div className="relative z-10 w-full max-w-[500px] aspect-square rounded-full overflow-hidden border border-white/5 shadow-2xl">
+              <div className="relative z-10 w-full max-w-[500px] aspect-square rounded-full overflow-hidden border border-white/5 shadow-2xl bg-deep-bg/40 backdrop-blur-xl">
                 <img 
                   src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=1000&auto=format&fit=crop"
-                  alt="Global Connection Protocol"
+                  alt="Global Connection"
                   className="w-full h-full object-cover scale-110 animate-float"
                   referrerPolicy="no-referrer"
                 />
@@ -157,22 +157,22 @@ export default function Hero() {
               <motion.div 
                 animate={{ y: [0, -10, 0] }}
                 transition={{ duration: 4, repeat: Infinity }}
-                className="absolute -top-6 -right-6 gamer-card px-4 py-2 bg-white/5 backdrop-blur-md border border-white/10 z-20"
+                className="absolute -top-6 -right-6 gamer-card px-4 py-2 bg-white/10 backdrop-blur-2xl border border-white/10 z-20"
               >
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-brand-orange animate-ping" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-brand-orange">Global Sync Active</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-brand-orange">Active Exchange</span>
                 </div>
               </motion.div>
 
               <motion.div 
                 animate={{ y: [0, 10, 0] }}
                 transition={{ duration: 5, repeat: Infinity, delay: 1 }}
-                className="absolute -bottom-4 -left-8 gamer-card px-4 py-2 bg-white/5 backdrop-blur-md border border-white/10 z-20"
+                className="absolute -bottom-4 -left-8 gamer-card px-4 py-2 bg-white/10 backdrop-blur-2xl border border-white/10 z-20"
               >
                 <div className="flex items-center gap-2">
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-muted">Node Connection</span>
-                  <span className="text-[10px] font-bold text-brand-blue">99.9%</span>
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-muted">Network Status</span>
+                  <span className="text-[10px] font-bold text-brand-blue">Online</span>
                 </div>
               </motion.div>
             </div>

@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { db } from '../../lib/firebase';
 import { doc, setDoc, Timestamp, collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { cleanupExpiredContacts } from '../../services/cleanupService';
+import OnboardingModal from './OnboardingModal';
 
 interface DashboardProps {
   user: {
@@ -31,8 +32,15 @@ export default function Dashboard({ user, onSignOut, stats }: DashboardProps) {
   const [downloadedToday, setDownloadedToday] = useState<string[]>([]);
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [isRenewing, setIsRenewing] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
+    const onboardingSeen = localStorage.getItem('loopOnboardingSeen');
+    if (!onboardingSeen) {
+      setTimeout(() => setShowOnboarding(true), 1500);
+      localStorage.setItem('loopOnboardingSeen', 'true');
+    }
+
     const saved = localStorage.getItem('loopDownloads');
     if (saved) {
       try {
@@ -73,7 +81,7 @@ export default function Dashboard({ user, onSignOut, stats }: DashboardProps) {
     if (isRenewing) return;
     setIsRenewing(true);
     playSound('click');
-    toast.loading("RE-ESTABLISHING UPLINK...", { id: 'renew' });
+    toast.loading("UPDATING MEMBERSHIP...", { id: 'renew' });
 
     try {
       const now = Timestamp.now();
@@ -101,10 +109,10 @@ export default function Dashboard({ user, onSignOut, stats }: DashboardProps) {
       localStorage.setItem('loopUser', JSON.stringify(payload));
       window.dispatchEvent(new CustomEvent('userJoined', { detail: payload }));
       
-      toast.success("SYNC RENEWED: Reset to 72 Hours.", { id: 'renew' });
+      toast.success("MEMBERSHIP EXTENDED: Active for 72 Hours.", { id: 'renew' });
     } catch (error) {
       console.error("Renewal Error:", error);
-      toast.error("PROTOCOL FAILURE: Connection Interrupted.", { id: 'renew' });
+      toast.error("CONNECTION ERROR: Please try again.", { id: 'renew' });
     } finally {
       setIsRenewing(false);
     }
@@ -159,7 +167,7 @@ export default function Dashboard({ user, onSignOut, stats }: DashboardProps) {
       });
 
       if (contacts.length === 0) {
-        toast.info("EMPTY PACK: No active members found in this protocol yet.");
+        toast.info("EMPTY PACK: No active members found in this category yet.");
         setDownloading(null);
         return;
       }
@@ -184,10 +192,10 @@ export default function Dashboard({ user, onSignOut, stats }: DashboardProps) {
         items: newDownloads
       }));
       
-      toast.success(`DECRYPTED: ${Math.floor(contacts.length / 5)} Contacts Syncing...`);
+      toast.success(`SUCCESS: ${Math.floor(contacts.length)} Contacts Ready.`);
     } catch (error) {
-      console.error("Sync Failure:", error);
-      toast.error("PROTOCOL FAILURE: Data stream interrupted.");
+      console.error("Download Failure:", error);
+      toast.error("DOWNLOAD FAILED: Please check your connection.");
     } finally {
       setDownloading(null);
     }
@@ -228,6 +236,7 @@ export default function Dashboard({ user, onSignOut, stats }: DashboardProps) {
 
   return (
     <div className="max-w-md mx-auto px-4 py-8 space-y-6">
+      <OnboardingModal isOpen={showOnboarding} onClose={() => setShowOnboarding(false)} />
       {/* Player Profile Card */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
@@ -273,7 +282,7 @@ export default function Dashboard({ user, onSignOut, stats }: DashboardProps) {
                     <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${isExpired ? 'bg-red-500' : 'bg-brand-orange'}`}></span>
                   </div>
                   <span className={`text-[9px] font-bold ${isExpired ? 'text-red-500' : 'text-brand-orange'} uppercase tracking-[0.2em]`}>
-                    {isExpired ? 'Protocol Expired' : 'Active Protocol'}
+                    {isExpired ? 'Membership Expired' : 'Active Member'}
                   </span>
                 </div>
               </div>
@@ -299,7 +308,7 @@ export default function Dashboard({ user, onSignOut, stats }: DashboardProps) {
              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-2">
                 <div className="space-y-1">
                    <div className={`text-[9px] uppercase font-bold tracking-widest ${isExpired ? 'text-red-400 animate-pulse' : 'text-muted opacity-40'}`}>
-                     {isExpired ? 'CRITICAL: Session Terminated' : 'System Sync Time'}
+                     {isExpired ? 'ACTION REQUIRED: Session Expired' : 'Active Time Remaining'}
                    </div>
                    <div className="flex items-center gap-2 sm:gap-3">
                      <div className={`font-display font-bold text-2xl sm:text-3xl tabular-nums leading-none ${isExpired ? 'text-red-500' : 'text-white'}`}>
@@ -312,7 +321,7 @@ export default function Dashboard({ user, onSignOut, stats }: DashboardProps) {
                        onClick={handleRenew}
                        disabled={isRenewing}
                        className={`p-1.5 sm:p-2 rounded-lg bg-brand-orange/10 text-brand-orange hover:bg-brand-orange/20 transition-all active:scale-90 ${isExpired && 'ring-2 ring-brand-orange animate-bounce'}`}
-                       title={isExpired ? 'Re-activate Protocol' : 'Restream Session'}
+                       title={isExpired ? 'Re-activate Membership' : 'Refresh Session'}
                      >
                        <RefreshCw size={14} className={isRenewing ? 'animate-spin' : ''} />
                      </button>
@@ -397,7 +406,7 @@ export default function Dashboard({ user, onSignOut, stats }: DashboardProps) {
                 onClick={() => {
                   if (isExpired) {
                     playSound('error');
-                    toast.error("PROTOCOL EXPIRED", { description: "You must restream your session to access data drops." });
+                    toast.error("MEMBERSHIP EXPIRED", { description: "Please refresh your session to download contacts." });
                     return;
                   }
                   handleDownload(item.id);
