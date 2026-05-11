@@ -46,7 +46,8 @@ service cloud.firestore {
       // Allow users to re-activate (update)
       allow update: if incoming().phone == existing().phone && incoming().expiresAt is timestamp;
 
-      allow delete: if false; 
+      // Allow cleanup of expired records
+      allow delete: if existing().expiresAt < request.time; 
     }
   }
 }

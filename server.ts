@@ -3,7 +3,7 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, query, where, getDocs, Timestamp, orderBy, deleteDoc } from 'firebase/firestore';
+import { getFirestore, collection, query, where, getDocs, Timestamp, orderBy, deleteDoc, writeBatch, limit } from 'firebase/firestore';
 import firebaseConfig from './firebase-applet-config.json' with { type: 'json' };
 
 const __filename = fileURLToPath(import.meta.url);
@@ -46,15 +46,17 @@ async function startServer() {
       const querySnapshot = await getDocs(q);
       const activeUsers = querySnapshot.docs.map(doc => doc.data());
 
-      // Background Cleanup: Delete contacts older than 4 days to free up space
-      const cleanupDate = Timestamp.fromMillis(now.toMillis() - (4 * 24 * 60 * 60 * 1000));
-      const oldUsersQuery = query(usersRef, where("expiresAt", "<", cleanupDate));
-      getDocs(oldUsersQuery).then(oldSnapshot => {
-        oldSnapshot.forEach(oldDoc => {
-          // Note: In a production app, use writeBatch or recursive delete for large scale
-          // For this applet, simple deletion is fine
-          deleteDoc(oldDoc.ref);
-        });
+      // Background Cleanup: Delete contacts that are expired
+      const oldUsersQuery = query(usersRef, where("expiresAt", "<", now), limit(100));
+      getDocs(oldUsersQuery).then(async oldSnapshot => {
+        if (!oldSnapshot.empty) {
+          const batch = writeBatch(db);
+          oldSnapshot.forEach(oldDoc => {
+            batch.delete(oldDoc.ref);
+          });
+          await batch.commit();
+          console.log(`[Server Cleanup] Purged ${oldSnapshot.size} expired records.`);
+        }
       }).catch(err => console.error("Cleanup error:", err));
 
       let vcfContent = "";

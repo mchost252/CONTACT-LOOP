@@ -6,6 +6,7 @@ import { playSound } from '../../lib/sounds';
 import { toast } from 'sonner';
 import { db } from '../../lib/firebase';
 import { doc, setDoc, Timestamp, collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { cleanupExpiredContacts } from '../../services/cleanupService';
 
 interface DashboardProps {
   user: {
@@ -60,14 +61,19 @@ export default function Dashboard({ user, onSignOut, stats }: DashboardProps) {
       }
     }, 1000);
 
+    // Passive cleanup of expired records
+    cleanupExpiredContacts();
+
     return () => clearInterval(timer);
   }, [user.expiresAt]);
+
+  const isExpired = timeLeft.days === 0 && timeLeft.hours === 0 && timeLeft.minutes === 0 && timeLeft.seconds === 0;
 
   const handleRenew = async () => {
     if (isRenewing) return;
     setIsRenewing(true);
     playSound('click');
-    toast.loading("RENEWING PROTOCOL...", { id: 'renew' });
+    toast.loading("RE-ESTABLISHING UPLINK...", { id: 'renew' });
 
     try {
       const now = Timestamp.now();
@@ -80,10 +86,17 @@ export default function Dashboard({ user, onSignOut, stats }: DashboardProps) {
         expiresAt: expiresAt.toMillis()
       };
 
+      // We use setDoc without merge: true partially to ensure the full document 
+      // is written if it was previously purged by cleanup.
       await setDoc(userRef, {
+        name: user.name,
+        phone: user.phone,
+        category: user.category,
+        socialLink: user.socialLink || null,
+        image: user.image || null,
         expiresAt: expiresAt,
         updatedAt: now
-      }, { merge: true });
+      });
 
       localStorage.setItem('loopUser', JSON.stringify(payload));
       window.dispatchEvent(new CustomEvent('userJoined', { detail: payload }));
@@ -256,10 +269,12 @@ export default function Dashboard({ user, onSignOut, stats }: DashboardProps) {
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="relative flex h-1.5 w-1.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-orange opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-brand-orange"></span>
+                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${isExpired ? 'bg-red-500' : 'bg-brand-orange'} opacity-75`}></span>
+                    <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${isExpired ? 'bg-red-500' : 'bg-brand-orange'}`}></span>
                   </div>
-                  <span className="text-[9px] font-bold text-brand-orange uppercase tracking-[0.2em]">Active Protocol</span>
+                  <span className={`text-[9px] font-bold ${isExpired ? 'text-red-500' : 'text-brand-orange'} uppercase tracking-[0.2em]`}>
+                    {isExpired ? 'Protocol Expired' : 'Active Protocol'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -283,19 +298,21 @@ export default function Dashboard({ user, onSignOut, stats }: DashboardProps) {
 
              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-2">
                 <div className="space-y-1">
-                   <div className="text-[9px] text-muted uppercase font-bold tracking-widest opacity-40">System Sync Time</div>
+                   <div className={`text-[9px] uppercase font-bold tracking-widest ${isExpired ? 'text-red-400 animate-pulse' : 'text-muted opacity-40'}`}>
+                     {isExpired ? 'CRITICAL: Session Terminated' : 'System Sync Time'}
+                   </div>
                    <div className="flex items-center gap-2 sm:gap-3">
-                     <div className="font-display font-bold text-2xl sm:text-3xl tabular-nums leading-none">
-                       {timeLeft.days}D<span className="text-brand-orange/50 px-0.5">:</span>
-                       {timeLeft.hours.toString().padStart(2, '0')}H<span className="text-brand-orange/50 px-0.5">:</span>
-                       {timeLeft.minutes.toString().padStart(2, '0')}M<span className="text-brand-orange/50 px-0.5">:</span>
-                       <span className="text-brand-orange">{timeLeft.seconds.toString().padStart(2, '0')}</span>S
+                     <div className={`font-display font-bold text-2xl sm:text-3xl tabular-nums leading-none ${isExpired ? 'text-red-500' : 'text-white'}`}>
+                       {timeLeft.days}D<span className={`${isExpired ? 'text-red-500/30' : 'text-brand-orange/50'} px-0.5`}>:</span>
+                       {timeLeft.hours.toString().padStart(2, '0')}H<span className={`${isExpired ? 'text-red-500/30' : 'text-brand-orange/50'} px-0.5`}>:</span>
+                       {timeLeft.minutes.toString().padStart(2, '0')}M<span className={`${isExpired ? 'text-red-500/30' : 'text-brand-orange/50'} px-0.5`}>:</span>
+                       <span className={isExpired ? 'text-red-500' : 'text-brand-orange'}>{timeLeft.seconds.toString().padStart(2, '0')}</span>S
                      </div>
                      <button
                        onClick={handleRenew}
                        disabled={isRenewing}
-                       className="p-1.5 sm:p-2 rounded-lg bg-brand-orange/10 text-brand-orange hover:bg-brand-orange/20 transition-all active:scale-90"
-                       title="Restream Session"
+                       className={`p-1.5 sm:p-2 rounded-lg bg-brand-orange/10 text-brand-orange hover:bg-brand-orange/20 transition-all active:scale-90 ${isExpired && 'ring-2 ring-brand-orange animate-bounce'}`}
+                       title={isExpired ? 'Re-activate Protocol' : 'Restream Session'}
                      >
                        <RefreshCw size={14} className={isRenewing ? 'animate-spin' : ''} />
                      </button>
@@ -377,8 +394,15 @@ export default function Dashboard({ user, onSignOut, stats }: DashboardProps) {
                 disabled={!!downloading}
                 whileHover={isUsed ? { scale: 1.01 } : { scale: 1.02, y: -2 }}
                 whileTap={isUsed ? { scale: 0.99 } : { scale: 0.98 }}
-                onClick={() => handleDownload(item.id)}
-                className={`gamer-card p-4 flex flex-col items-center gap-2.5 relative transition-all ${isUsed ? 'opacity-40 grayscale-[0.5] hover:opacity-100 hover:grayscale-0' : 'hover:bg-white/[0.03]'}`}
+                onClick={() => {
+                  if (isExpired) {
+                    playSound('error');
+                    toast.error("PROTOCOL EXPIRED", { description: "You must restream your session to access data drops." });
+                    return;
+                  }
+                  handleDownload(item.id);
+                }}
+                className={`gamer-card p-4 flex flex-col items-center gap-2.5 relative transition-all ${isUsed || isExpired ? 'opacity-40 grayscale-[0.5] hover:opacity-100 hover:grayscale-0' : 'hover:bg-white/[0.03]'}`}
               >
                  <div className={`w-10 h-10 rounded-xl bg-brand-${item.color}/10 flex items-center justify-center text-brand-${item.color} ${!isUsed && 'group-hover:scale-105'} transition-transform`}>
                    {isSelfDownloading ? <Loader2 size={20} className="animate-spin" /> : React.cloneElement(item.icon as React.ReactElement, { size: 20 })}
