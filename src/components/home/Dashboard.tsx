@@ -155,13 +155,12 @@ export default function Dashboard({ user, onSignOut, stats }: DashboardProps) {
         if (data.phone === user.phone) return;
 
         // VCF format construction
-        const name = data.name || "Loop Member";
+        const name = data.name || "Member";
         const phone = data.phone;
-        const categoryTag = data.category ? ` [${data.category.toUpperCase()}]` : "";
         
         contacts.push("BEGIN:VCARD");
         contacts.push("VERSION:3.0");
-        contacts.push(`FN:LOOP${categoryTag} ${name}`);
+        contacts.push(`FN:${name}`);
         contacts.push(`TEL;TYPE=CELL:${phone}`);
         contacts.push("END:VCARD");
       });
